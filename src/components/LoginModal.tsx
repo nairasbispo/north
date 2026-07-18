@@ -21,6 +21,7 @@ interface LoginModalProps {
   currentUser: FirebaseUser | null;
   authLoading: boolean;
   isFirebaseConfigured: boolean;
+  loginError?: string | null;
 }
 
 export default function LoginModal({
@@ -29,7 +30,8 @@ export default function LoginModal({
   onLogin,
   currentUser,
   authLoading,
-  isFirebaseConfigured
+  isFirebaseConfigured,
+  loginError
 }: LoginModalProps) {
   if (!isOpen) return null;
 
@@ -137,6 +139,24 @@ export default function LoginModal({
             Conectado como <strong className="font-bold">{currentUser.displayName || currentUser.email}</strong>. Todos os seus dados de evolução já estão sincronizados com segurança na nuvem.
           </div>
         ) : null}
+
+        {loginError && (
+          <div className="mb-6 p-4 bg-[#8c3c3c]/10 text-[#8c3c3c] border border-[#8c3c3c]/20 rounded-2xl text-xs leading-relaxed text-left" id="login-modal-error-box">
+            <div className="flex items-center gap-1.5 font-bold mb-1 text-[#8c3c3c]">
+              <Shield className="w-4 h-4" />
+              Erro de Autenticação Firebase
+            </div>
+            <p className="mb-2 font-semibold">
+              {loginError.includes('api-key-not-valid') 
+                ? 'A chave de API (API Key) fornecida para o Firebase é inválida ou não foi ativada.' 
+                : loginError}
+            </p>
+            <p className="opacity-85 text-[11px] leading-normal">
+              Por favor, certifique-se de configurar chaves do Firebase oficiais e válidas no painel de <strong>Secrets</strong> do AI Studio. 
+              Enquanto isso, você pode clicar em <strong>"Continuar sem sincronizar (modo local)"</strong> abaixo para usar o app normalmente — seus dados continuarão totalmente salvos no navegador!
+            </p>
+          </div>
+        )}
 
         {/* Action button container */}
         <div className="space-y-3">

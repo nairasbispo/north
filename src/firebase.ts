@@ -56,15 +56,14 @@ export const googleProvider = new GoogleAuthProvider();
 
 export async function loginWithGoogle(): Promise<User | null> {
   if (!auth) {
-    console.warn('Firebase Auth is not initialized. Sign-in is disabled.');
-    return null;
+    throw new Error('Firebase Auth is not initialized. Sign-in is disabled.');
   }
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error) {
     console.error('Error signing in with Google:', error);
-    return null;
+    throw error;
   }
 }
 

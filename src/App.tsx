@@ -54,6 +54,12 @@ export default function App() {
   const [languageContext, setLanguageContext] = useState<LanguageType>('en');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [localLoginError, setLocalLoginError] = useState<string | null>(null);
+
+  const openLoginModal = () => {
+    setLocalLoginError(null);
+    setIsLoginModalOpen(true);
+  };
 
   // Compute total languageHours dynamically
   const languageHours = languageLogs.reduce((sum, log) => sum + log.hours, 0);
@@ -156,7 +162,7 @@ export default function App() {
           streak={streak}
           currentUser={currentUser}
           authLoading={authLoading}
-          onLogin={() => setIsLoginModalOpen(true)}
+          onLogin={openLoginModal}
           onLogout={logout}
           isCloudSyncActive={isCloudSyncActive}
         />
@@ -234,7 +240,7 @@ export default function App() {
                 <button
                   onClick={() => {
                     if (!currentUser) {
-                      setIsLoginModalOpen(true);
+                      openLoginModal();
                       setMobileMenuOpen(false);
                     }
                   }}
@@ -279,7 +285,7 @@ export default function App() {
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
           streak={streak}
           currentUser={currentUser}
-          onLoginClick={() => setIsLoginModalOpen(true)}
+          onLoginClick={openLoginModal}
         />
 
         {/* Tab Canvas Content */}
@@ -295,14 +301,20 @@ export default function App() {
             <LoginModal
               isOpen={isLoginModalOpen}
               onClose={() => setIsLoginModalOpen(false)}
-              onLogin={() => {
-                loginWithGoogle().finally(() => {
+              onLogin={async () => {
+                setLocalLoginError(null);
+                try {
+                  await loginWithGoogle();
                   setIsLoginModalOpen(false);
-                });
+                } catch (err: any) {
+                  console.error("Login failed:", err);
+                  setLocalLoginError(err?.message || String(err));
+                }
               }}
               currentUser={currentUser}
               authLoading={authLoading}
               isFirebaseConfigured={isFirebaseConfigured}
+              loginError={localLoginError}
             />
           )}
         </AnimatePresence>
