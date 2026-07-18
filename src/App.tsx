@@ -24,7 +24,6 @@ import LanguagesTab from './components/LanguagesTab';
 import HabitsTab from './components/HabitsTab';
 import StatisticsTab from './components/StatisticsTab';
 import SettingsTab from './components/SettingsTab';
-import LoginModal from './components/LoginModal';
 import { useFirebaseSync } from './hooks/useFirebaseSync';
 import { loginWithGoogle, logout, isFirebaseConfigured } from './firebase';
 
@@ -33,7 +32,6 @@ export default function App() {
     currentUser,
     authLoading,
     firestoreLoading,
-    isCloudSyncActive,
     streak,
     waterAmount,
     habits,
@@ -53,13 +51,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
   const [languageContext, setLanguageContext] = useState<LanguageType>('en');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [localLoginError, setLocalLoginError] = useState<string | null>(null);
-
-  const openLoginModal = () => {
-    setLocalLoginError(null);
-    setIsLoginModalOpen(true);
-  };
 
   // Compute total languageHours dynamically
   const languageHours = languageLogs.reduce((sum, log) => sum + log.hours, 0);
@@ -99,7 +90,6 @@ export default function App() {
             onAddWater={addWater}
             logs={logs}
             languageLogs={languageLogs}
-            currentUser={currentUser}
           />
         );
       case 'exercise':
@@ -163,9 +153,8 @@ export default function App() {
           streak={streak}
           currentUser={currentUser}
           authLoading={authLoading}
-          onLogin={openLoginModal}
+          onLogin={loginWithGoogle}
           onLogout={logout}
-          isCloudSyncActive={isCloudSyncActive}
         />
       </div>
 
@@ -238,15 +227,7 @@ export default function App() {
 
               {/* User details footer */}
               <div className="pt-6 border-t border-[#d8d0c8]/50 flex items-center justify-between">
-                <button
-                  onClick={() => {
-                    if (!currentUser) {
-                      openLoginModal();
-                      setMobileMenuOpen(false);
-                    }
-                  }}
-                  className={`flex items-center gap-3 text-left focus:outline-none ${!currentUser ? 'hover:opacity-85 active:scale-95 transition-all cursor-pointer' : ''}`}
-                >
+                <div className="flex items-center gap-3">
                   <img
                     src={currentUser?.photoURL || "https://lh3.googleusercontent.com/aida-public/AB6AXuB_fvfjYbviNKIfXWmXQ-eOVIEvOTeM9mhbY3f8qjao2Z-ZVxURhd14mIdFQJDXMyhk-XrkDXCEFIZnqiLqJ4WhETgr7WrZq6uHCgatQA0eX0jhdHbt0xw9rqvFjVkm-2Z8mTmfFyECmdSTIpBi-xIO7LeMlKI2CKKM5pqJ7ud442YAkcTuP-oxZKzAsRTIibZFuBoCA-LjmiFTx7ui29QUw4QVlQbWQx4tfLof3nIeLVNdg2dtTIs7whEZcG7OSNs-DEmw3Gns0JcJ"}
                     alt={currentUser?.displayName || "João Silva"}
@@ -256,10 +237,10 @@ export default function App() {
                   <div className="text-left">
                     <p className="text-sm font-bold text-[#3a302a]">{currentUser?.displayName || "João Silva"}</p>
                     <p className="text-xs font-semibold text-[#78706a]">
-                      {currentUser ? "Nuvem Sincronizada" : "Entrar com Google"}
+                      {currentUser ? "Nuvem Sincronizada" : "Nível 12 • Evoluindo"}
                     </p>
                   </div>
-                </button>
+                </div>
                 {currentUser && (
                   <button 
                     onClick={logout}
@@ -286,7 +267,6 @@ export default function App() {
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
           streak={streak}
           currentUser={currentUser}
-          onLoginClick={openLoginModal}
         />
 
         {/* Tab Canvas Content */}
@@ -295,30 +275,6 @@ export default function App() {
             {renderTabContent()}
           </AnimatePresence>
         </main>
-
-        {/* Floating Google Login Modal */}
-        <AnimatePresence>
-          {isLoginModalOpen && (
-            <LoginModal
-              isOpen={isLoginModalOpen}
-              onClose={() => setIsLoginModalOpen(false)}
-              onLogin={async () => {
-                setLocalLoginError(null);
-                try {
-                  await loginWithGoogle();
-                  setIsLoginModalOpen(false);
-                } catch (err: any) {
-                  console.error("Login failed:", err);
-                  setLocalLoginError(err?.message || String(err));
-                }
-              }}
-              currentUser={currentUser}
-              authLoading={authLoading}
-              isFirebaseConfigured={isFirebaseConfigured}
-              loginError={localLoginError}
-            />
-          )}
-        </AnimatePresence>
 
         {/* Footer Area with credit info */}
         <footer className="py-6 border-t border-[#d8d0c8]/40 text-center opacity-60">

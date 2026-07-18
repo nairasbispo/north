@@ -10,7 +10,6 @@ interface HeaderProps {
   onMobileMenuOpen: () => void;
   streak: number;
   currentUser: FirebaseUser | null;
-  onLoginClick: () => void;
 }
 
 export default function Header({ 
@@ -19,8 +18,7 @@ export default function Header({
   onLanguageChange, 
   onMobileMenuOpen,
   streak,
-  currentUser,
-  onLoginClick
+  currentUser
 }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -183,19 +181,14 @@ export default function Header({
         </div>
 
         {/* User profile picture */}
-        <button 
-          onClick={onLoginClick}
-          className="w-9 h-9 rounded-full overflow-hidden border border-[#d8d0c8] hover:border-[#c2652a] hover:scale-105 transition-all duration-300 shadow-sm focus:outline-none cursor-pointer"
-          title={currentUser ? `Conectado como ${currentUser.displayName || currentUser.email}` : "Entrar com Google"}
-          id="header-profile-button"
-        >
+        <div className="w-9 h-9 rounded-full overflow-hidden border border-[#d8d0c8] shadow-sm">
           <img 
             src={currentUser?.photoURL || "https://lh3.googleusercontent.com/aida-public/AB6AXuB_fvfjYbviNKIfXWmXQ-eOVIEvOTeM9mhbY3f8qjao2Z-ZVxURhd14mIdFQJDXMyhk-XrkDXCEFIZnqiLqJ4WhETgr7WrZq6uHCgatQA0eX0jhdHbt0xw9rqvFjVkm-2Z8mTmfFyECmdSTIpBi-xIO7LeMlKI2CKKM5pqJ7ud442YAkcTuP-oxZKzAsRTIibZFuBoCA-LjmiFTx7ui29QUw4QVlQbWQx4tfLof3nIeLVNdg2dtTIs7whEZcG7OSNs-DEmw3Gns0JcJ"}
             alt={currentUser?.displayName || "Usuário"}
             referrerPolicy="no-referrer"
             className="w-full h-full object-cover"
           />
-        </button>
+        </div>
       </div>
     </header>
   );

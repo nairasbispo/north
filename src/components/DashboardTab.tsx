@@ -17,7 +17,6 @@ import {
   Activity
 } from 'lucide-react';
 import { Habit, AppTab, ExerciseLog, LanguageLog } from '../types';
-import { User as FirebaseUser } from 'firebase/auth';
 
 interface DashboardTabProps {
   onTabChange: (tab: AppTab) => void;
@@ -28,7 +27,6 @@ interface DashboardTabProps {
   onAddWater: (amount: number) => void;
   logs: ExerciseLog[];
   languageLogs: LanguageLog[];
-  currentUser?: FirebaseUser | null;
 }
 
 export default function DashboardTab({ 
@@ -39,8 +37,7 @@ export default function DashboardTab({
   waterAmount,
   onAddWater,
   logs,
-  languageLogs,
-  currentUser
+  languageLogs
 }: DashboardTabProps) {
   // Calculate completed percentage
   const completedHabits = habits.filter(h => h.completed).length;
@@ -192,11 +189,7 @@ export default function DashboardTab({
             18 de Julho, 2026
           </p>
           <h2 className="font-display text-4xl md:text-5xl font-bold text-[#3a302a] tracking-tight">
-            Bom dia, {
-              currentUser 
-                ? (currentUser.displayName?.split(' ')[0] || currentUser.email?.split('@')[0] || 'Usuário') 
-                : 'João'
-            }.
+            Bom dia, João.
           </h2>
           <p className="font-sans text-base text-[#605850] mt-2 max-w-2xl leading-relaxed">
             Aqui está o seu panorama de evolução para hoje. Mantenha o seu foco e o ritmo de conquistas.

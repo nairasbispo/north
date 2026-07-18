@@ -38,7 +38,9 @@ if (isFirebaseConfigured) {
           console.log('Firebase connection initialized successfully.');
         }
       } catch (error) {
-        console.log('Firebase is unreachable or root path is protected. Falling back gracefully to LocalStorage mode.', error);
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration. Client is offline.");
+        }
       }
     };
     testConnection();
@@ -56,14 +58,15 @@ export const googleProvider = new GoogleAuthProvider();
 
 export async function loginWithGoogle(): Promise<User | null> {
   if (!auth) {
-    throw new Error('Firebase Auth is not initialized. Sign-in is disabled.');
+    console.warn('Firebase Auth is not initialized. Sign-in is disabled.');
+    return null;
   }
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error) {
     console.error('Error signing in with Google:', error);
-    throw error;
+    return null;
   }
 }
 
