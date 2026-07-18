@@ -1,0 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Manrope:wght@200..800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-display: "EB Garamond", Georgia, serif;
+  --font-headline: "EB Garamond", Georgia, serif;
+  --font-sans: "Manrope", sans-serif;
+  --font-body: "Manrope", sans-serif;
+  --font-label: "Manrope", sans-serif;
+  
+  --color-primary: #c2652a;
+  --color-background: #faf5ee;
+  --color-surface: #faf5ee;
+  --color-tertiary: #8c3c3c;
+  --color-secondary: #78706a;
+}
+
+body {
+  font-family: "Manrope", sans-serif;
+  background-color: #faf5ee;
+  color: #3a302a;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #ece6dc; 
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d8d0c8; 
+}

@@ -1,0 +1,6 @@
+{
+  "name": "North",
+  "description": "Evolution Assistant - Um assistente pessoal minimalista e acolhedor para acompanhar seu progresso em idiomas, exercícios e hábitos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

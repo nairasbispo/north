@@ -1,0 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    function incoming() { 
+      return request.resource.data; 
+    }
+    function existing() { 
+      return resource.data; 
+    }
+    function isSignedIn() { 
+      return request.auth != null; 
+    }
+    function isOwner(userId) { 
+      return isSignedIn() && request.auth.uid == userId && request.auth.token.email_verified == true; 
+    }
+
+    // Entity validations
+    function isValidHabit(data) {
+      return data.keys().hasAll(['id', 'name', 'completed']) &&
+             data.keys().size() <= 5 &&
+             data.id is string && isValidId(data.id) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.completed is bool &&
+             (!('duration' in data) || (data.duration is string && data.duration.size() <= 50)) &&
+             (!('icon' in data) || (data.icon is string && data.icon.size() <= 50));
+    }
+
+    function isValidExerciseLog(data) {
+      return data.keys().hasAll(['id', 'type', 'duration', 'intensity', 'date']) &&
+             data.keys().size() <= 6 &&
+             data.id is string && isValidId(data.id) &&
+             data.type in ['Bike', 'Caminhada', 'Corrida', 'Musculação'] &&
+             data.duration is int && data.duration >= 0 &&
+             data.intensity in ['Leve', 'Moderada', 'Intensa'] &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+             data.date is string && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isValidLanguageLog(data) {
+      return data.keys().hasAll(['id', 'language', 'hours', 'date', 'skills']) &&
+             data.keys().size() <= 5 &&
+             data.id is string && isValidId(data.id) &&
+             data.language in ['en', 'fr'] &&
+             (data.hours is float || data.hours is int) && data.hours >= 0.0 &&
+             data.date is string && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             data.skills is list && data.skills.size() <= 10 &&
+             (data.skills.size() == 0 || data.skills[0] is string);
+    }
+
+    function isValidUserStats(data) {
+      return data.keys().hasAll(['userId', 'streak', 'waterAmount']) &&
+             data.keys().size() == 3 &&
+             data.userId is string && isValidId(data.userId) &&
+             data.streak is int && data.streak >= 0 &&
+             (data.waterAmount is float || data.waterAmount is int) && data.waterAmount >= 0.0;
+    }
+
+    function isValidRoutineSettings(data) {
+      return data.keys().hasAll(['wakeTime', 'sleepTime', 'weeklyExerciseGoal', 'monthlyLanguageGoal', 'pushNotifications', 'darkTheme']) &&
+             data.keys().size() == 6 &&
+             data.wakeTime is string && data.wakeTime.matches('^\\d{2}:\\d{2}$') &&
+             data.sleepTime is string && data.sleepTime.matches('^\\d{2}:\\d{2}$') &&
+             data.weeklyExerciseGoal is int && data.weeklyExerciseGoal >= 0 &&
+             data.monthlyLanguageGoal is int && data.monthlyLanguageGoal >= 0 &&
+             data.pushNotifications is bool &&
+             data.darkTheme is bool;
+    }
+
+    // Match blocks
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      
+      match /habits/{habitId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(habitId);
+        allow create, update: if isOwner(userId) && isValidId(habitId) && isValidHabit(incoming());
+      }
+
+      match /exerciseLogs/{logId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(logId);
+        allow create, update: if isOwner(userId) && isValidId(logId) && isValidExerciseLog(incoming());
+      }
+
+      match /languageLogs/{logId} {
+        allow list: if isOwner(userId);
+        allow get, delete: if isOwner(userId) && isValidId(logId);
+        allow create, update: if isOwner(userId) && isValidId(logId) && isValidLanguageLog(incoming());
+      }
+
+      match /stats/{statDoc} {
+        allow get: if isOwner(userId) && isValidId(statDoc);
+        allow create, update: if isOwner(userId) && statDoc == 'global' && isValidUserStats(incoming());
+        allow delete: if isOwner(userId) && isValidId(statDoc);
+      }
+
+      match /settings/{settingsDoc} {
+        allow get: if isOwner(userId) && isValidId(settingsDoc);
+        allow create, update: if isOwner(userId) && settingsDoc == 'routine' && isValidRoutineSettings(incoming());
+        allow delete: if isOwner(userId) && isValidId(settingsDoc);
+      }
+    }
+  }
+}
