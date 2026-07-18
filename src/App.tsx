@@ -99,6 +99,7 @@ export default function App() {
             onAddWater={addWater}
             logs={logs}
             languageLogs={languageLogs}
+            currentUser={currentUser}
           />
         );
       case 'exercise':
