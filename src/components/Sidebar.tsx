@@ -24,6 +24,7 @@ interface SidebarProps {
   authLoading: boolean;
   onLogin: () => void;
   onLogout: () => void;
+  isCloudSyncActive: boolean;
 }
 
 export default function Sidebar({ 
@@ -33,7 +34,8 @@ export default function Sidebar({
   currentUser,
   authLoading,
   onLogin,
-  onLogout 
+  onLogout,
+  isCloudSyncActive
 }: SidebarProps) {
   const menuItems = [
     { id: 'dashboard' as AppTab, label: 'Dashboard', icon: LayoutDashboard },
@@ -69,12 +71,20 @@ export default function Sidebar({
             </div>
             <p className="leading-tight opacity-85">Defina as chaves no painel de Secrets para ativar.</p>
           </div>
-        ) : currentUser ? (
+        ) : (currentUser && isCloudSyncActive) ? (
           <div className="text-xs text-emerald-800 px-3 py-1.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20 flex items-center justify-between">
             <div className="flex items-center gap-1.5 font-bold">
               <Cloud className="w-3.5 h-3.5 text-emerald-600" />
               Cloud Sync Ativo
             </div>
+          </div>
+        ) : (currentUser && !isCloudSyncActive) ? (
+          <div className="text-[11px] text-[#78706a] px-3 py-2 bg-amber-500/10 rounded-xl border border-amber-500/20 flex flex-col gap-1">
+            <div className="flex items-center gap-1.5 font-bold text-amber-800">
+              <CloudOff className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+              Nuvem Offline (Local)
+            </div>
+            <p className="leading-tight text-[10px] opacity-85">A nuvem está inacessível ou não provisionada. Seus dados continuam salvos localmente no navegador!</p>
           </div>
         ) : (
           <button 

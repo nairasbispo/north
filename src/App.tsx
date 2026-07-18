@@ -24,6 +24,7 @@ import LanguagesTab from './components/LanguagesTab';
 import HabitsTab from './components/HabitsTab';
 import StatisticsTab from './components/StatisticsTab';
 import SettingsTab from './components/SettingsTab';
+import LoginModal from './components/LoginModal';
 import { useFirebaseSync } from './hooks/useFirebaseSync';
 import { loginWithGoogle, logout, isFirebaseConfigured } from './firebase';
 
@@ -32,6 +33,7 @@ export default function App() {
     currentUser,
     authLoading,
     firestoreLoading,
+    isCloudSyncActive,
     streak,
     waterAmount,
     habits,
@@ -51,6 +53,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
   const [languageContext, setLanguageContext] = useState<LanguageType>('en');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   // Compute total languageHours dynamically
   const languageHours = languageLogs.reduce((sum, log) => sum + log.hours, 0);
@@ -153,8 +156,9 @@ export default function App() {
           streak={streak}
           currentUser={currentUser}
           authLoading={authLoading}
-          onLogin={loginWithGoogle}
+          onLogin={() => setIsLoginModalOpen(true)}
           onLogout={logout}
+          isCloudSyncActive={isCloudSyncActive}
         />
       </div>
 
@@ -227,7 +231,15 @@ export default function App() {
 
               {/* User details footer */}
               <div className="pt-6 border-t border-[#d8d0c8]/50 flex items-center justify-between">
-                <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    if (!currentUser) {
+                      setIsLoginModalOpen(true);
+                      setMobileMenuOpen(false);
+                    }
+                  }}
+                  className={`flex items-center gap-3 text-left focus:outline-none ${!currentUser ? 'hover:opacity-85 active:scale-95 transition-all cursor-pointer' : ''}`}
+                >
                   <img
                     src={currentUser?.photoURL || "https://lh3.googleusercontent.com/aida-public/AB6AXuB_fvfjYbviNKIfXWmXQ-eOVIEvOTeM9mhbY3f8qjao2Z-ZVxURhd14mIdFQJDXMyhk-XrkDXCEFIZnqiLqJ4WhETgr7WrZq6uHCgatQA0eX0jhdHbt0xw9rqvFjVkm-2Z8mTmfFyECmdSTIpBi-xIO7LeMlKI2CKKM5pqJ7ud442YAkcTuP-oxZKzAsRTIibZFuBoCA-LjmiFTx7ui29QUw4QVlQbWQx4tfLof3nIeLVNdg2dtTIs7whEZcG7OSNs-DEmw3Gns0JcJ"}
                     alt={currentUser?.displayName || "João Silva"}
@@ -237,10 +249,10 @@ export default function App() {
                   <div className="text-left">
                     <p className="text-sm font-bold text-[#3a302a]">{currentUser?.displayName || "João Silva"}</p>
                     <p className="text-xs font-semibold text-[#78706a]">
-                      {currentUser ? "Nuvem Sincronizada" : "Nível 12 • Evoluindo"}
+                      {currentUser ? "Nuvem Sincronizada" : "Entrar com Google"}
                     </p>
                   </div>
-                </div>
+                </button>
                 {currentUser && (
                   <button 
                     onClick={logout}
@@ -267,6 +279,7 @@ export default function App() {
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
           streak={streak}
           currentUser={currentUser}
+          onLoginClick={() => setIsLoginModalOpen(true)}
         />
 
         {/* Tab Canvas Content */}
@@ -275,6 +288,24 @@ export default function App() {
             {renderTabContent()}
           </AnimatePresence>
         </main>
+
+        {/* Floating Google Login Modal */}
+        <AnimatePresence>
+          {isLoginModalOpen && (
+            <LoginModal
+              isOpen={isLoginModalOpen}
+              onClose={() => setIsLoginModalOpen(false)}
+              onLogin={() => {
+                loginWithGoogle().finally(() => {
+                  setIsLoginModalOpen(false);
+                });
+              }}
+              currentUser={currentUser}
+              authLoading={authLoading}
+              isFirebaseConfigured={isFirebaseConfigured}
+            />
+          )}
+        </AnimatePresence>
 
         {/* Footer Area with credit info */}
         <footer className="py-6 border-t border-[#d8d0c8]/40 text-center opacity-60">

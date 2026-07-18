@@ -82,6 +82,18 @@ export function useFirebaseSync() {
   // Track if we are currently loading data from Firebase so we don't overwrite during initial pull
   const loadingFromFirebase = useRef(false);
 
+  const [isCloudSyncActive, setIsCloudSyncActive] = useState(isFirebaseConfigured);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentUser) {
+      setIsCloudSyncActive(isFirebaseConfigured);
+      setSyncError(null);
+    } else {
+      setIsCloudSyncActive(false);
+    }
+  }, [currentUser]);
+
   // 1. Auth Listener
   useEffect(() => {
     if (!isFirebaseConfigured || !auth) {
@@ -99,7 +111,7 @@ export function useFirebaseSync() {
 
   // 2. LocalStorage backup writer (for local mode or as offline protection)
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser || !isCloudSyncActive) {
       localStorage.setItem('north_streak', streak.toString());
       localStorage.setItem('north_waterAmount', waterAmount.toString());
       localStorage.setItem('north_habits', JSON.stringify(habits));
@@ -107,11 +119,11 @@ export function useFirebaseSync() {
       localStorage.setItem('north_languageLogs', JSON.stringify(languageLogs));
       localStorage.setItem('north_settings', JSON.stringify(settings));
     }
-  }, [streak, waterAmount, habits, logs, languageLogs, settings, currentUser]);
+  }, [streak, waterAmount, habits, logs, languageLogs, settings, currentUser, isCloudSyncActive]);
 
   // 3. Real-time Firebase Sync
   useEffect(() => {
-    if (!isFirebaseConfigured || !db || !currentUser) {
+    if (!isCloudSyncActive || !db || !currentUser) {
       return;
     }
 
@@ -126,6 +138,18 @@ export function useFirebaseSync() {
     const langPath = `users/${uid}/languageLogs`;
     const statsPath = `users/${uid}/stats/global`;
     const settingsPath = `users/${uid}/settings/routine`;
+
+    let active = true;
+
+    const handleSyncFailure = (err: any, path: string) => {
+      console.warn(`Firebase sync failed for path [${path}]. Falling back to LocalStorage.`, err);
+      if (active) {
+        setIsCloudSyncActive(false);
+        setSyncError(err instanceof Error ? err.message : String(err));
+        setFirestoreLoading(false);
+        loadingFromFirebase.current = false;
+      }
+    };
 
     // A flag to check if we need to seed because the user is completely new
     let isSeedingRequired = false;
@@ -161,17 +185,23 @@ export function useFirebaseSync() {
         console.log('Successfully synced local data to Firebase cloud profile.');
       } catch (err) {
         console.error('Error seeding data to Firestore:', err);
+        throw err;
       }
     };
 
     // First, check if global stats exist to determine if seeding is required
     getDoc(doc(db, statsPath))
       .then((docSnap) => {
+        if (!active) return;
         if (!docSnap.exists()) {
           isSeedingRequired = true;
           seedFirebase().then(() => {
-            loadingFromFirebase.current = false;
-            setFirestoreLoading(false);
+            if (active) {
+              loadingFromFirebase.current = false;
+              setFirestoreLoading(false);
+            }
+          }).catch(err => {
+            handleSyncFailure(err, statsPath);
           });
         } else {
           loadingFromFirebase.current = false;
@@ -179,14 +209,12 @@ export function useFirebaseSync() {
         }
       })
       .catch((err) => {
-        handleFirestoreError(err, OperationType.GET, statsPath);
-        loadingFromFirebase.current = false;
-        setFirestoreLoading(false);
+        handleSyncFailure(err, statsPath);
       });
 
     // Subscribe to Habits
     const unsubHabits = onSnapshot(collection(db, habitsPath), (snapshot) => {
-      if (loadingFromFirebase.current) return;
+      if (!active || loadingFromFirebase.current) return;
       const loaded: Habit[] = [];
       snapshot.forEach((doc) => {
         loaded.push(doc.data() as Habit);
@@ -195,12 +223,12 @@ export function useFirebaseSync() {
         setHabits(loaded);
       }
     }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, habitsPath);
+      handleSyncFailure(err, habitsPath);
     });
 
     // Subscribe to Exercise Logs
     const unsubLogs = onSnapshot(collection(db, logsPath), (snapshot) => {
-      if (loadingFromFirebase.current) return;
+      if (!active || loadingFromFirebase.current) return;
       const loaded: ExerciseLog[] = [];
       snapshot.forEach((doc) => {
         loaded.push(doc.data() as ExerciseLog);
@@ -211,12 +239,12 @@ export function useFirebaseSync() {
         setLogs(loaded);
       }
     }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, logsPath);
+      handleSyncFailure(err, logsPath);
     });
 
     // Subscribe to Language Logs
     const unsubLangLogs = onSnapshot(collection(db, langPath), (snapshot) => {
-      if (loadingFromFirebase.current) return;
+      if (!active || loadingFromFirebase.current) return;
       const loaded: LanguageLog[] = [];
       snapshot.forEach((doc) => {
         loaded.push(doc.data() as LanguageLog);
@@ -227,39 +255,40 @@ export function useFirebaseSync() {
         setLanguageLogs(loaded);
       }
     }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, langPath);
+      handleSyncFailure(err, langPath);
     });
 
     // Subscribe to Global Stats
     const unsubStats = onSnapshot(doc(db, statsPath), (docSnap) => {
-      if (loadingFromFirebase.current) return;
+      if (!active || loadingFromFirebase.current) return;
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.streak !== undefined) setStreak(data.streak);
         if (data.waterAmount !== undefined) setWaterAmount(data.waterAmount);
       }
     }, (err) => {
-      handleFirestoreError(err, OperationType.GET, statsPath);
+      handleSyncFailure(err, statsPath);
     });
 
     // Subscribe to Routine Settings
     const unsubSettings = onSnapshot(doc(db, settingsPath), (docSnap) => {
-      if (loadingFromFirebase.current) return;
+      if (!active || loadingFromFirebase.current) return;
       if (docSnap.exists()) {
         setSettings(docSnap.data() as RoutineSettings);
       }
     }, (err) => {
-      handleFirestoreError(err, OperationType.GET, settingsPath);
+      handleSyncFailure(err, settingsPath);
     });
 
     return () => {
+      active = false;
       unsubHabits();
       unsubLogs();
       unsubLangLogs();
       unsubStats();
       unsubSettings();
     };
-  }, [currentUser]);
+  }, [currentUser, isCloudSyncActive]);
 
   // 4. Mutation Wrappers
   const toggleHabit = async (id: string) => {
@@ -269,14 +298,16 @@ export function useFirebaseSync() {
     );
     setHabits(updatedHabits);
 
-    if (currentUser && db) {
+    if (currentUser && db && isCloudSyncActive) {
       const habitPath = `users/${currentUser.uid}/habits/${id}`;
       const updatedHabit = updatedHabits.find((h) => h.id === id);
       if (updatedHabit) {
         try {
           await setDoc(doc(db, `users/${currentUser.uid}/habits`, id), updatedHabit);
         } catch (e) {
-          handleFirestoreError(e, OperationType.WRITE, habitPath);
+          console.warn(`Write failed for ${habitPath}, disabling cloud sync fallback to local.`, e);
+          setIsCloudSyncActive(false);
+          setSyncError(e instanceof Error ? e.message : String(e));
         }
       }
     }
@@ -291,12 +322,14 @@ export function useFirebaseSync() {
     };
     setHabits((prev) => [...prev, newHabit]);
 
-    if (currentUser && db) {
+    if (currentUser && db && isCloudSyncActive) {
       const habitPath = `users/${currentUser.uid}/habits/${newHabit.id}`;
       try {
         await setDoc(doc(db, `users/${currentUser.uid}/habits`, newHabit.id), newHabit);
       } catch (e) {
-        handleFirestoreError(e, OperationType.WRITE, habitPath);
+        console.warn(`Write failed for ${habitPath}, disabling cloud sync.`, e);
+        setIsCloudSyncActive(false);
+        setSyncError(e instanceof Error ? e.message : String(e));
       }
     }
   };
@@ -304,12 +337,14 @@ export function useFirebaseSync() {
   const deleteHabit = async (id: string) => {
     setHabits((prev) => prev.filter((h) => h.id !== id));
 
-    if (currentUser && db) {
+    if (currentUser && db && isCloudSyncActive) {
       const habitPath = `users/${currentUser.uid}/habits/${id}`;
       try {
         await deleteDoc(doc(db, `users/${currentUser.uid}/habits`, id));
       } catch (e) {
-        handleFirestoreError(e, OperationType.DELETE, habitPath);
+        console.warn(`Delete failed for ${habitPath}, disabling cloud sync.`, e);
+        setIsCloudSyncActive(false);
+        setSyncError(e instanceof Error ? e.message : String(e));
       }
     }
   };
@@ -325,23 +360,29 @@ export function useFirebaseSync() {
     setLogs((prev) => [logItem, ...prev]);
     setStreak((prev) => {
       const nextStreak = prev + 1;
-      if (currentUser && db) {
+      if (currentUser && db && isCloudSyncActive) {
         const statsPath = `users/${currentUser.uid}/stats/global`;
         setDoc(doc(db, statsPath), {
           userId: currentUser.uid,
           streak: nextStreak,
           waterAmount
-        }).catch((e) => handleFirestoreError(e, OperationType.WRITE, statsPath));
+        }).catch((e) => {
+          console.warn(`Write stats failed, disabling cloud sync.`, e);
+          setIsCloudSyncActive(false);
+          setSyncError(e instanceof Error ? e.message : String(e));
+        });
       }
       return nextStreak;
     });
 
-    if (currentUser && db) {
+    if (currentUser && db && isCloudSyncActive) {
       const logPath = `users/${currentUser.uid}/exerciseLogs/${logItem.id}`;
       try {
         await setDoc(doc(db, `users/${currentUser.uid}/exerciseLogs`, logItem.id), logItem);
       } catch (e) {
-        handleFirestoreError(e, OperationType.WRITE, logPath);
+        console.warn(`Write log failed, disabling cloud sync.`, e);
+        setIsCloudSyncActive(false);
+        setSyncError(e instanceof Error ? e.message : String(e));
       }
     }
   };
@@ -357,12 +398,14 @@ export function useFirebaseSync() {
     
     setLanguageLogs((prev) => [newLog, ...prev]);
 
-    if (currentUser && db) {
+    if (currentUser && db && isCloudSyncActive) {
       const logPath = `users/${currentUser.uid}/languageLogs/${newLog.id}`;
       try {
         await setDoc(doc(db, `users/${currentUser.uid}/languageLogs`, newLog.id), newLog);
       } catch (e) {
-        handleFirestoreError(e, OperationType.WRITE, logPath);
+        console.warn(`Write lang log failed, disabling cloud sync.`, e);
+        setIsCloudSyncActive(false);
+        setSyncError(e instanceof Error ? e.message : String(e));
       }
     }
   };
@@ -370,13 +413,17 @@ export function useFirebaseSync() {
   const addWater = async (amount: number) => {
     setWaterAmount((prev) => {
       const nextAmount = Math.round((prev + amount) * 100) / 100;
-      if (currentUser && db) {
+      if (currentUser && db && isCloudSyncActive) {
         const statsPath = `users/${currentUser.uid}/stats/global`;
         setDoc(doc(db, statsPath), {
           userId: currentUser.uid,
           streak,
           waterAmount: nextAmount
-        }).catch((e) => handleFirestoreError(e, OperationType.WRITE, statsPath));
+        }).catch((e) => {
+          console.warn(`Write stats failed, disabling cloud sync.`, e);
+          setIsCloudSyncActive(false);
+          setSyncError(e instanceof Error ? e.message : String(e));
+        });
       }
       return nextAmount;
     });
@@ -385,12 +432,14 @@ export function useFirebaseSync() {
   const saveSettings = async (newSettings: RoutineSettings) => {
     setSettings(newSettings);
 
-    if (currentUser && db) {
+    if (currentUser && db && isCloudSyncActive) {
       const settingsPath = `users/${currentUser.uid}/settings/routine`;
       try {
         await setDoc(doc(db, settingsPath), newSettings);
       } catch (e) {
-        handleFirestoreError(e, OperationType.WRITE, settingsPath);
+        console.warn(`Write settings failed, disabling cloud sync.`, e);
+        setIsCloudSyncActive(false);
+        setSyncError(e instanceof Error ? e.message : String(e));
       }
     }
   };
@@ -399,6 +448,8 @@ export function useFirebaseSync() {
     currentUser,
     authLoading,
     firestoreLoading,
+    isCloudSyncActive,
+    syncError,
     streak,
     waterAmount,
     habits,

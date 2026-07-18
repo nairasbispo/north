@@ -38,9 +38,7 @@ if (isFirebaseConfigured) {
           console.log('Firebase connection initialized successfully.');
         }
       } catch (error) {
-        if (error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration. Client is offline.");
-        }
+        console.log('Firebase is unreachable or root path is protected. Falling back gracefully to LocalStorage mode.', error);
       }
     };
     testConnection();
