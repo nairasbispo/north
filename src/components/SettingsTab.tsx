@@ -9,9 +9,16 @@ import {
   Bell,
   Moon,
   Languages,
-  Check
+  Check,
+  Database,
+  FileCode,
+  CheckCircle,
+  HelpCircle,
+  Copy
 } from 'lucide-react';
 import { RoutineSettings } from '../types';
+import { isSupabaseConfigured, SUPABASE_SQL_SCHEMA } from '../supabase';
+
 
 interface SettingsTabProps {
   settings: RoutineSettings;
@@ -28,6 +35,7 @@ export default function SettingsTab({ settings, onSaveSettings }: SettingsTabPro
   const [darkTheme, setDarkTheme] = useState(settings.darkTheme);
   
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [sqlCopied, setSqlCopied] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,6 +278,74 @@ export default function SettingsTab({ settings, onSaveSettings }: SettingsTabPro
         </div>
 
       </form>
+
+      {/* Supabase Configuration Section */}
+      <section className="bg-white/70 border border-[#d8d0c8]/60 rounded-2xl p-6 md:p-8 mt-8 shadow-sm text-left relative overflow-hidden group">
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+              <Database className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-display text-xl font-bold text-[#3a302a]">Sincronização com Supabase</h3>
+              <p className="font-sans text-xs text-[#78706a] font-medium mt-0.5">Persistência durável em nuvem com PostgreSQL.</p>
+            </div>
+          </div>
+
+          <div>
+            {isSupabaseConfigured ? (
+              <span className="px-3.5 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 text-xs font-bold rounded-full flex items-center gap-1.5">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                Conectado ao Supabase
+              </span>
+            ) : (
+              <span className="px-3.5 py-1.5 bg-[#f2ece4] border border-[#d8d0c8]/40 text-[#78706a] text-xs font-bold rounded-full flex items-center gap-1.5">
+                <HelpCircle className="w-4 h-4 text-[#9a9088]" />
+                Modo Local (LocalStorage)
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-4 relative z-10">
+          <p className="font-sans text-sm text-[#605850] leading-relaxed">
+            O North suporta sincronização automática e transparente com o <strong>Supabase</strong>. 
+            Se as variáveis de ambiente <code className="bg-[#f2ece4] px-1.5 py-0.5 rounded text-xs text-[#c2652a] font-mono">VITE_SUPABASE_URL</code> e <code className="bg-[#f2ece4] px-1.5 py-0.5 rounded text-xs text-[#c2652a] font-mono">VITE_SUPABASE_ANON_KEY</code> estiverem definidas, o app alternará automaticamente do Firebase para o Supabase!
+          </p>
+
+          <div className="bg-[#faf5ee] border border-[#d8d0c8]/60 rounded-xl p-4 md:p-5">
+            <div className="flex items-center gap-2 mb-3 text-sm font-bold text-[#3a302a]">
+              <FileCode className="w-4.5 h-4.5 text-[#c2652a]" />
+              Esquema de Banco de Dados (SQL)
+            </div>
+            <p className="font-sans text-xs text-[#78706a] mb-4 leading-relaxed">
+              Execute o script SQL abaixo no editor do seu painel do Supabase (SQL Editor) para criar todas as tabelas e políticas de segurança necessárias em segundos:
+            </p>
+
+            <div className="relative">
+              <pre className="bg-[#3a302a] text-amber-50 rounded-xl p-4 text-xs font-mono overflow-x-auto max-h-60 leading-relaxed scrollbar-thin">
+                {SUPABASE_SQL_SCHEMA}
+              </pre>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
+                  setSqlCopied(true);
+                  setTimeout(() => setSqlCopied(false), 3000);
+                }}
+                className="absolute top-3 right-3 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-all text-xs flex items-center gap-1.5 cursor-pointer"
+                title="Copiar Código"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {sqlCopied ? 'Copiado!' : 'Copiar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </motion.div>
   );
 }

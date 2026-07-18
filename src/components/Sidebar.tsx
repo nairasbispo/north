@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   LayoutDashboard, 
   Dumbbell, 
@@ -10,11 +10,16 @@ import {
   Cloud,
   CloudOff,
   LogOut,
-  LogIn
+  LogIn,
+  Mail,
+  Lock,
+  UserPlus
 } from 'lucide-react';
 import { AppTab } from '../types';
 import { User as FirebaseUser } from 'firebase/auth';
 import { isFirebaseConfigured } from '../firebase';
+import { isSupabaseConfigured, supabase } from '../supabase';
+
 
 interface SidebarProps {
   activeTab: AppTab;
@@ -35,6 +40,38 @@ export default function Sidebar({
   onLogin,
   onLogout 
 }: SidebarProps) {
+  const [showEmailAuth, setShowEmailAuth] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isRegister, setIsRegister] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
+  const [localLoading, setLocalLoading] = useState(false);
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    setLocalLoading(true);
+    setAuthError('');
+    setAuthSuccess('');
+
+    try {
+      if (isRegister) {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        setAuthSuccess('Conta criada! Verifique seu email ou faça login.');
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        setAuthSuccess('Login efetuado!');
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'Erro na autenticação.');
+    } finally {
+      setLocalLoading(false);
+    }
+  };
+
   const menuItems = [
     { id: 'dashboard' as AppTab, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'exercise' as AppTab, label: 'Exercise', icon: Dumbbell },
@@ -54,14 +91,14 @@ export default function Sidebar({
         </p>
       </div>
 
-      {/* Firebase cloud sync status indicator */}
+      {/* Cloud sync status indicator */}
       <div className="px-4 mb-4">
         {authLoading ? (
           <div className="text-xs text-[#78706a] px-3 py-1.5 bg-[#f2ece4] rounded-xl flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
             Carregando nuvem...
           </div>
-        ) : !isFirebaseConfigured ? (
+        ) : (!isFirebaseConfigured && !isSupabaseConfigured) ? (
           <div className="text-[11px] text-[#78706a] px-3 py-2 bg-[#f2ece4] rounded-xl border border-[#d8d0c8]/30 flex flex-col gap-1">
             <div className="flex items-center gap-1.5 font-semibold text-[#8c3c3c]">
               <CloudOff className="w-3.5 h-3.5" />
@@ -70,20 +107,101 @@ export default function Sidebar({
             <p className="leading-tight opacity-85">Defina as chaves no painel de Secrets para ativar.</p>
           </div>
         ) : currentUser ? (
-          <div className="text-xs text-emerald-800 px-3 py-1.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20 flex items-center justify-between">
-            <div className="flex items-center gap-1.5 font-bold">
-              <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-              Cloud Sync Ativo
+          <div className="text-xs text-emerald-800 px-3 py-1.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20 flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-bold">
+                <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+                {isSupabaseConfigured ? 'Supabase Sincronizado' : 'Firebase Sincronizado'}
+              </div>
             </div>
           </div>
         ) : (
-          <button 
-            onClick={onLogin}
-            className="w-full text-xs text-[#c2652a] font-bold px-3 py-2 bg-[#c2652a]/15 hover:bg-[#c2652a]/20 border border-[#c2652a]/30 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            Entrar com Google
-          </button>
+          <div className="space-y-2">
+            <button 
+              onClick={onLogin}
+              className="w-full text-xs text-[#c2652a] font-bold px-3 py-2 bg-[#c2652a]/15 hover:bg-[#c2652a]/20 border border-[#c2652a]/30 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              Entrar com Google
+            </button>
+            
+            {isSupabaseConfigured && (
+              <div className="flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEmailAuth(!showEmailAuth);
+                    setAuthError('');
+                    setAuthSuccess('');
+                  }}
+                  className="w-full text-[11px] text-[#78706a] hover:text-[#c2652a] transition-all font-semibold underline text-center cursor-pointer"
+                >
+                  {showEmailAuth ? 'Ocultar login por Email' : 'Entrar/Criar conta com Email'}
+                </button>
+
+                {showEmailAuth && (
+                  <form onSubmit={handleEmailAuth} className="bg-white/60 p-2.5 rounded-xl border border-[#d8d0c8]/50 space-y-2 text-left">
+                    <div>
+                      <label className="text-[9px] font-bold text-[#78706a] uppercase block mb-0.5">Email</label>
+                      <div className="relative">
+                        <Mail className="w-3 h-3 text-[#9a9088] absolute left-2 top-2" />
+                        <input
+                          type="email"
+                          placeholder="seu@email.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="w-full bg-[#faf5ee] border border-[#d8d0c8] rounded-lg pl-6 pr-2 py-1 text-xs text-[#3a302a] focus:outline-none focus:border-[#c2652a]"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-bold text-[#78706a] uppercase block mb-0.5">Senha</label>
+                      <div className="relative">
+                        <Lock className="w-3 h-3 text-[#9a9088] absolute left-2 top-2" />
+                        <input
+                          type="password"
+                          placeholder="••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full bg-[#faf5ee] border border-[#d8d0c8] rounded-lg pl-6 pr-2 py-1 text-xs text-[#3a302a] focus:outline-none focus:border-[#c2652a]"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {authError && (
+                      <p className="text-[9px] text-[#8c3c3c] font-bold leading-tight">{authError}</p>
+                    )}
+                    {authSuccess && (
+                      <p className="text-[9px] text-emerald-700 font-bold leading-tight">{authSuccess}</p>
+                    )}
+
+                    <div className="flex gap-1.5 pt-1">
+                      <button
+                        type="submit"
+                        disabled={localLoading}
+                        onClick={() => setIsRegister(false)}
+                        className="flex-1 bg-[#c2652a] hover:bg-[#8a4518] text-white font-bold py-1 px-2 rounded text-[10px] transition-colors cursor-pointer"
+                      >
+                        {localLoading && !isRegister ? '...' : 'Entrar'}
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={localLoading}
+                        onClick={() => setIsRegister(true)}
+                        className="flex-1 bg-[#faf5ee] hover:bg-[#f2ece4] text-[#c2652a] border border-[#c2652a]/30 font-bold py-1 px-2 rounded text-[10px] transition-colors cursor-pointer flex items-center justify-center gap-1"
+                      >
+                        <UserPlus className="w-2.5 h-2.5" />
+                        Cadastrar
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

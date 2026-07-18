@@ -53,10 +53,29 @@ if (isFirebaseConfigured) {
 
 export { db, auth };
 
+// Import Supabase config
+import { isSupabaseConfigured, supabase, mapSupabaseUser } from './supabase.ts';
+
 // Auth helpers
 export const googleProvider = new GoogleAuthProvider();
 
-export async function loginWithGoogle(): Promise<User | null> {
+export async function loginWithGoogle(): Promise<any> {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error signing in with Google via Supabase:', error);
+      return null;
+    }
+  }
+
   if (!auth) {
     console.warn('Firebase Auth is not initialized. Sign-in is disabled.');
     return null;
@@ -71,6 +90,16 @@ export async function loginWithGoogle(): Promise<User | null> {
 }
 
 export async function logout(): Promise<void> {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      await supabase.auth.signOut();
+      return;
+    } catch (error) {
+      console.error('Error signing out via Supabase:', error);
+      return;
+    }
+  }
+
   if (!auth) return;
   try {
     await signOut(auth);
@@ -78,6 +107,7 @@ export async function logout(): Promise<void> {
     console.error('Error signing out:', error);
   }
 }
+
 
 // Error handling wrapper according to Firebase integration guidelines
 export enum OperationType {
